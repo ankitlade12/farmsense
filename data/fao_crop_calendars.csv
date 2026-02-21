@@ -1,0 +1,18 @@
+country,region,crop_name,planting_start_month,planting_end_month,harvest_start_month,harvest_end_month,season_type,centroid_lat,centroid_lon
+Nigeria,Oyo,maize,3,5,8,10,main,7.8467,3.9470
+Nigeria,Oyo State,maize,3,5,8,10,main,7.8467,3.9470
+Nigeria,Ogun,maize,3,5,8,10,main,7.1550,3.3500
+Nigeria,Osun,maize,3,5,8,10,main,7.6167,4.1833
+Nigeria,Lagos,maize,3,5,8,10,main,6.4541,3.3947
+Nigeria,Kaduna,maize,4,6,9,11,main,10.5222,7.4383
+Bangladesh,Dhaka,rice,3,4,6,7,boro,23.8103,90.4125
+Bangladesh,Chittagong,rice,5,6,11,12,aman,22.3569,91.7832
+Bangladesh,Rajshahi,rice,3,4,6,7,boro,24.3745,88.6042
+India,Punjab,wheat,11,12,3,4,rabi,31.1471,75.3412
+India,Uttar Pradesh,wheat,11,12,3,4,rabi,26.8467,80.9462
+Kenya,Western,cassava,3,5,12,24,main,-0.0236,34.7529
+Kenya,Nyanza,cassava,3,5,12,24,main,-0.5633,34.4533
+Ethiopia,Oromia,tomato,2,4,6,8,main,8.5269,39.4353
+Ethiopia,SNNPR,tomato,2,4,6,8,main,6.4969,36.4870
+Ghana,Ashanti,maize,3,5,8,10,main,6.7000,-1.6167
+Senegal,Thies,maize,5,7,10,12,main,14.7833,-16.9167

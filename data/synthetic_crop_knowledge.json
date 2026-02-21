@@ -1,0 +1,79 @@
+[
+  {
+    "crop_name": "maize",
+    "region": "West Africa",
+    "content_type": "pest_management",
+    "text": "Maize yellowing and leaf curling can indicate drought stress, nitrogen deficiency, or early Fall Armyworm (Spodoptera frugiperda) damage. Under drought, leaves roll and turn pale; apply mulch to conserve soil moisture. For Fall Armyworm, look for window-pane feeding and frass; biopesticides (e.g. Bt) or neem-based sprays applied at early growth stages can reduce damage. Avoid late nitrogen application.",
+    "symptoms": "yellowing leaves curling drought",
+    "pest_names": ["Fall Armyworm", "Spodoptera frugiperda"],
+    "source": "FAO",
+    "language": "en",
+    "last_updated": "2024-01-15"
+  },
+  {
+    "crop_name": "maize",
+    "region": "West Africa",
+    "content_type": "irrigation",
+    "text": "Maize is sensitive to water stress at flowering and grain fill. Critical period is 2 weeks before and after silking. Supplemental irrigation or rainwater harvesting can significantly improve yield. In dry spells, one or two strategic irrigations at tasseling and early grain fill are most effective.",
+    "symptoms": "drought water stress",
+    "pest_names": [],
+    "source": "FAO",
+    "language": "en",
+    "last_updated": "2024-01-10"
+  },
+  {
+    "crop_name": "rice",
+    "region": "South Asia",
+    "content_type": "disease",
+    "text": "Rice blast (Magnaporthe oryzae) causes leaf lesions, node rot, and panicle blast. Favoured by high humidity and nitrogen excess. Use resistant varieties where available; avoid excessive N; ensure good drainage. Fungicide sprays (e.g. tricyclazole) can be used at tillering and heading in high-risk areas.",
+    "symptoms": "blast lesions leaf spots humidity",
+    "pest_names": ["Rice blast", "Magnaporthe oryzae"],
+    "source": "CGIAR",
+    "language": "en",
+    "last_updated": "2024-02-01"
+  },
+  {
+    "crop_name": "rice",
+    "region": "South Asia",
+    "content_type": "flooding",
+    "text": "Flooding and waterlogging damage rice roots and promote diseases. After floods, drain fields as soon as possible; avoid heavy N application until plants recover. Watch for bacterial leaf blight and sheath blight in wet conditions.",
+    "symptoms": "flooding waterlogging",
+    "pest_names": [],
+    "source": "FAO",
+    "language": "en",
+    "last_updated": "2024-01-20"
+  },
+  {
+    "crop_name": "wheat",
+    "region": "South Asia",
+    "content_type": "pest_management",
+    "text": "Aphids on wheat can reduce yield and transmit viruses. Scout at tillering and heading. Low populations may be controlled by natural enemies; if thresholds exceeded, use soap or botanical sprays. Avoid broad-spectrum insecticides to preserve beneficials.",
+    "symptoms": "aphids sucking insects",
+    "pest_names": ["aphid"],
+    "source": "CGIAR",
+    "language": "en",
+    "last_updated": "2024-01-25"
+  },
+  {
+    "crop_name": "cassava",
+    "region": "East Africa",
+    "content_type": "nutrient",
+    "text": "Cassava nutrient deficiency shows as yellowing or pale leaves, stunted growth, and poor root development. Nitrogen deficiency causes overall yellowing; potassium affects root quality. Use compost or well-decomposed manure; small doses of mineral fertilizer at planting can help on poor soils.",
+    "symptoms": "yellowing stunted nutrient deficiency",
+    "pest_names": [],
+    "source": "FAO",
+    "language": "en",
+    "last_updated": "2024-01-12"
+  },
+  {
+    "crop_name": "tomato",
+    "region": "East Africa",
+    "content_type": "disease",
+    "text": "Late blight (Phytophthora infestans) causes dark lesions on leaves and stems and rot on fruits. Thrives in cool, humid conditions. Use resistant varieties; improve air flow; avoid overhead irrigation in evening. Copper-based or fungicide sprays can protect when weather favours disease.",
+    "symptoms": "late blight lesions humidity leaf spots",
+    "pest_names": ["Late blight", "Phytophthora infestans"],
+    "source": "CGIAR",
+    "language": "en",
+    "last_updated": "2024-02-05"
+  }
+]

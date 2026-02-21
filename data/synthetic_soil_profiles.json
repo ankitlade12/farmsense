@@ -1,0 +1,8 @@
+[
+  {"location": {"lat": 7.85, "lon": 3.95}, "country": "Nigeria", "region": "Oyo", "soil_type": "Ferric Lixisol", "drainage_class": "well", "water_holding_capacity": "medium", "ph_level": 6.2, "organic_carbon_pct": 0.8, "texture": "loam"},
+  {"location": {"lat": 7.50, "lon": 4.00}, "country": "Nigeria", "region": "Osun", "soil_type": "Ferric Lixisol", "drainage_class": "moderate", "water_holding_capacity": "medium", "ph_level": 5.9, "organic_carbon_pct": 0.7, "texture": "clay_loam"},
+  {"location": {"lat": 23.81, "lon": 90.41}, "country": "Bangladesh", "region": "Dhaka", "soil_type": "Gleyic Fluvisol", "drainage_class": "poor", "water_holding_capacity": "high", "ph_level": 6.5, "organic_carbon_pct": 1.2, "texture": "silty_loam"},
+  {"location": {"lat": 26.85, "lon": 80.95}, "country": "India", "region": "Uttar Pradesh", "soil_type": "Eutric Cambisol", "drainage_class": "well", "water_holding_capacity": "medium", "ph_level": 7.1, "organic_carbon_pct": 0.6, "texture": "sandy_loam"},
+  {"location": {"lat": -0.02, "lon": 34.75}, "country": "Kenya", "region": "Western", "soil_type": "Ferralic Nitisol", "drainage_class": "well", "water_holding_capacity": "high", "ph_level": 5.5, "organic_carbon_pct": 1.0, "texture": "clay_loam"},
+  {"location": {"lat": 8.53, "lon": 39.44}, "country": "Ethiopia", "region": "Oromia", "soil_type": "Chromic Luvisol", "drainage_class": "moderate", "water_holding_capacity": "medium", "ph_level": 6.0, "organic_carbon_pct": 0.9, "texture": "loam"}
+]
