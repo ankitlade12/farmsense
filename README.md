@@ -74,6 +74,33 @@ In Kibana, open **Agent Builder → Chat**, select **FarmSense Advisor** from th
 
 **Optional:** ELSER (semantic search), advisory workflow (logging + alerts) → see [OPTIONAL_SETUP.md](OPTIONAL_SETUP.md).
 
+### Telegram Bot Integration (Frontend)
+
+FarmSense includes a production-ready mobile frontend via Telegram, utilizing FastAPI and the Elastic Agent API.
+
+1. **Configure Environment:** Create a bot via [@BotFather](https://t.me/botfather) and add the following to your `.env`:
+   ```env
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   ALLOWED_CHAT_IDS=123456789,987654321  # Optional: Protect your bot from unauthorized users
+   ```
+
+2. **Start the FastAPI Server:**
+   ```bash
+   uv run python telegram_server.py
+   ```
+
+3. **Expose locally via ngrok:**
+   ```bash
+   ngrok http 8000
+   ```
+
+4. **Register the Webhook:**
+   ```bash
+   curl -F "url=https://<YOUR_NGROK_URL>/webhook" https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
+   ```
+
+5. **Test it:** Open Telegram, find your bot, and send `/start` or a farming query to watch the real-time AI execution pipeline!
+
 ## Project Structure
 
 ```
