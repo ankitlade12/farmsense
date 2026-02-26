@@ -1,4 +1,4 @@
-# 🌾 FarmSense — AI Agronomist for Smallholder Farmers
+# FarmSense — AI Agronomist for Smallholder Farmers
 
 *AI agronomist in your pocket — free, instant, hyper-local.*
 
@@ -20,9 +20,9 @@ Deliver hyper-contextual crop advisories by reasoning across open datasets — b
 ```mermaid
 flowchart LR
     subgraph User Journey
-        A["💬 Describe Situation\nCrop, Location, Symptoms"] --> B["🔬 Intelligence\n4 Parallel Queries"]
-        B --> C["📊 Advisory\nDiagnosis + Actions"]
-        C --> D["📋 Log & Alert\nAudit + Webhook"]
+        A["Describe Situation\nCrop, Location, Symptoms"] --> B["Intelligence\n4 Parallel Queries"]
+        B --> C["Advisory\nDiagnosis + Actions"]
+        C --> D["Log & Alert\nAudit + Webhook"]
     end
 
     subgraph Agent Pipeline
@@ -49,10 +49,10 @@ flowchart LR
 
 | Step | Phase | What Happens |
 |------|-------|-------------|
-| **1** | 💬 **Intake** | Farmer describes situation (crop, location, symptoms, rain) in plain language via Kibana Chat or Telegram |
-| **2** | 🔬 **Intelligence** | Agent normalizes the location and runs 4 parallel queries (Climate, Pest, Agronomy, Soil) |
-| **3** | 📊 **Advisory** | Synthesizes data into a concrete advisory with risk level, primary diagnosis, and actions |
-| **4** | 📋 **Action & Log** | Logs the generated advisory for auditing. If risk is critical, triggers a webhook alert |
+| **1** | **Intake** | Farmer describes situation (crop, location, symptoms, rain) in plain language via Kibana Chat or Telegram |
+| **2** | **Intelligence** | Agent normalizes the location and runs 4 parallel queries (Climate, Pest, Agronomy, Soil) |
+| **3** | **Advisory** | Synthesizes data into a concrete advisory with risk level, primary diagnosis, and actions |
+| **4** | **Action & Log** | Logs the generated advisory for auditing. If risk is critical, triggers a webhook alert |
 
 ---
 
@@ -190,12 +190,12 @@ Queries active pest outbreaks (e.g., from FAO EMPRES reports) within a 300 km ra
 ---
 
 ## Features
-- **🌍 Geo-Normalization Assistant:** Automatically converts plain-text region names into precise lat/lon coordinates for downstream tools.
-- **🌦️ Hyper-Local Climate Matching:** Analyzes exact recent rainfall trends instead of relying on generic seasonal assumptions.
-- **🐛 Proximity-based Pest Alerts:** Filters verified pest outbreaks by exact distance to the farmer.
-- **🌱 Soil-Aware Modelling:** Adapts advice based on whether the local soil is matching (e.g., sandy vs. clay, drainage capacity).
-- **⏱️ Instant Advisory:** Full pipeline executes and returns a comprehensive guide in under 60 seconds.
-- **🚨 Automated Critical Alerts:** Built-in Elastic Workflow integration to alert authorities or NGOs automatically if a critical pest threshold is met.
+- **Geo-Normalization Assistant:** Automatically converts plain-text region names into precise lat/lon coordinates for downstream tools.
+- **Hyper-Local Climate Matching:** Analyzes exact recent rainfall trends instead of relying on generic seasonal assumptions.
+- **Proximity-based Pest Alerts:** Filters verified pest outbreaks by exact distance to the farmer.
+- **Soil-Aware Modelling:** Adapts advice based on whether the local soil is matching (e.g., sandy vs. clay, drainage capacity).
+- **Instant Advisory:** Full pipeline executes and returns a comprehensive guide in under 60 seconds.
+- **Automated Critical Alerts:** Built-in Elastic Workflow integration to alert authorities or NGOs automatically if a critical pest threshold is met.
 
 ---
 
@@ -350,11 +350,11 @@ If the API-based setup fails, you can create everything by hand in the Kibana UI
 
 | Scenario | Input |
 |---|---|
-| 🌽 Maize, Nigeria — Drought + FAW | *"Maize in Oyo State, Nigeria. Leaves yellowing and curling. Very little rain for 3 weeks. 6-leaf stage."* |
-| 🌾 Rice, Bangladesh — Flooding + Blast | *"Rice in Dhaka, Bangladesh. After floods, leaf spots and panicles turning brown. Very humid."* |
-| 🌾 Wheat, India — Minor Aphids | *"Wheat in Uttar Pradesh, India. Some aphids on leaves but crop looks healthy. Normal rainfall."* |
-| 🥔 Cassava, Kenya — Nutrient Deficiency | *"Cassava in Western Kenya. Leaves yellowing, plants stunted. Poor soil, no fertilizer."* |
-| 🍅 Tomato, Ethiopia — Late Blight | *"Tomato in Oromia, Ethiopia. Dark lesions on leaves and stems. Cool and very humid."* |
+| Maize, Nigeria — Drought + FAW | *"Maize in Oyo State, Nigeria. Leaves yellowing and curling. Very little rain for 3 weeks. 6-leaf stage."* |
+| Rice, Bangladesh — Flooding + Blast | *"Rice in Dhaka, Bangladesh. After floods, leaf spots and panicles turning brown. Very humid."* |
+| Wheat, India — Minor Aphids | *"Wheat in Uttar Pradesh, India. Some aphids on leaves but crop looks healthy. Normal rainfall."* |
+| Cassava, Kenya — Nutrient Deficiency | *"Cassava in Western Kenya. Leaves yellowing, plants stunted. Poor soil, no fertilizer."* |
+| Tomato, Ethiopia — Late Blight | *"Tomato in Oromia, Ethiopia. Dark lesions on leaves and stems. Cool and very humid."* |
 
 4. Watch the agent normalize geo-location, query all 4 data streams, and return a structured advisory with risk level, diagnosis, and actions.
 
