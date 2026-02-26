@@ -1,0 +1,16 @@
+---
+description: Git commits and repos must never attribute Cursor; only the user (ankitlade12) as author.
+alwaysApply: true
+---
+
+# Git: No Cursor Attribution
+
+When creating branches, new repos, or any git commits for this project:
+
+1. **Never add Cursor as a contributor.** Do not include `Co-authored-by: Cursor <cursoragent@cursor.com>` (or any Cursor co-author) in commit messages. The IDE may inject this automatically — bypass it by using low-level git commands (`git commit-tree` with a plain message, or `git commit --no-verify` with an explicit message that has no co-author trailer).
+
+2. **Commit messages must not mention Cursor.** Use neutral wording (e.g. "Initial commit", "Fix ES|QL queries") — do not reference "Cursor agent" or "Cursor" in the message.
+
+3. **Author and committer must be the user only.** When running git commands that set author/committer, use the repository owner's identity (e.g. `ankitlade12` / their email), not Cursor's.
+
+If pushing to GitHub and the repo was created or ever had commits with Cursor co-author, GitHub may cache contributors. To get a clean "1 contributor" view: delete the GitHub repo, create a new one with the same name, then push the existing local branch (which has clean, user-only commits).
