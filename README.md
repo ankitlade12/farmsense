@@ -422,6 +422,9 @@ farmsense/
 |---|---|---|
 | `ES_URL` | Yes | Elasticsearch Serverless URL |
 | `ES_API_KEY` | Yes | API Key to authenticate with Elasticsearch |
+| `TELEGRAM_BOT_TOKEN` | Optional | Required only if running the Telegram mobile frontend |
+| `ALLOWED_CHAT_IDS` | Optional | Comma-separated list of User IDs allowed to use the Telegram bot |
+| `ALERT_WEBHOOK_URL` | Optional | Webhook URL to trigger when a CRITICAL pest risk is detected |
 
 ---
 
