@@ -18,13 +18,42 @@ Deliver hyper-contextual crop advisories by reasoning across open datasets — b
 
 ## High Level Workflow
 
+```mermaid
+flowchart LR
+    subgraph User Journey
+        A["💬 Describe Situation\nCrop, Location, Symptoms"] --> B["🔬 Intelligence\n4 Parallel Queries"]
+        B --> C["📊 Advisory\nDiagnosis + Actions"]
+        C --> D["📋 Log & Alert\nAudit + Webhook"]
+    end
+
+    subgraph Agent Pipeline
+        E["geo_normalize_tool\nRegion → lat/lon"] --> F["4 Parallel Queries"]
+        F --> G["Synthesize Advisory\nRisk + Diagnosis + Actions"]
+        G --> H["log_advisory_workflow\nIndex + Alert"]
+    end
+
+    subgraph Data Sources
+        I["climate-timeseries\nRainfall + Temp"]
+        J["pest-outbreaks\nGeo-Distance Filter"]
+        K["crop-knowledge\nELSER Semantic"]
+        L["soil-profiles\nSoil Type + WHC"]
+    end
+
+    A -.->|"Kibana Chat / Telegram"| E
+    F --> I
+    F --> J
+    F --> K
+    F --> L
+```
+
 ### User Flow
+
 | Step | Phase | What Happens |
-|---|---|---|
-| 1 | 💬 **Intake** | Farmer describes situation (crop, location, symptoms, rain) in plain language via Kibana Chat. |
-| 2 | 🔬 **Intelligence** | Agent normalizes the location and runs 4 parallel queries (Climate, Pest, Agronomy, Soil). |
-| 3 | 📊 **Advisory** | Synthesizes data into a concrete advisory with risk level, primary diagnosis, and actions. |
-| 4 | 📋 **Action & Log** | Logs the generated advisory for auditing. If risk is critical, triggers a webhook alert. |
+|------|-------|-------------|
+| **1** | 💬 **Intake** | Farmer describes situation (crop, location, symptoms, rain) in plain language via Kibana Chat or Telegram |
+| **2** | 🔬 **Intelligence** | Agent normalizes the location and runs 4 parallel queries (Climate, Pest, Agronomy, Soil) |
+| **3** | 📊 **Advisory** | Synthesizes data into a concrete advisory with risk level, primary diagnosis, and actions |
+| **4** | 📋 **Action & Log** | Logs the generated advisory for auditing. If risk is critical, triggers a webhook alert |
 
 ---
 
@@ -47,41 +76,94 @@ FarmSense is a consumer-friendly AI agronomist that:
 ## Architecture and Technical Overview
 
 ### System Architecture
-One central agent (**FarmSense Advisor**) orchestrated via **Elastic Agent Builder**, utilizing 7 specialized tools to run the full flow.
+
+```mermaid
+graph TB
+    subgraph Frontends ["Frontends"]
+        KC["Kibana Agent Chat"]
+        TG["Telegram Bot\nFastAPI + ngrok"]
+    end
+
+    subgraph Agent ["FarmSense Advisor · Elastic Agent Builder"]
+        LLM["LLM Orchestrator\n7 Tools · 4-Step Pipeline"]
+    end
+
+    subgraph Tools ["Agent Tools · ES|QL + ELSER"]
+        GN["geo_normalize_tool\nRegion → WKT lat/lon"]
+        CC["crop_calendar_tool\nPlanting/Harvest Windows"]
+        GC["geo_climate_query\n200km · 90 days"]
+        PO["pest_outbreak_lookup\n300km · 30 days"]
+        SP["soil_profile_lookup\n100km radius"]
+        CK["crop_knowledge_search\nELSER v2 Semantic"]
+        LW["log_advisory_workflow\nElastic Workflow"]
+    end
+
+    subgraph DataLayer ["Data Layer · Elasticsearch Serverless"]
+        CKI["crop-knowledge\nFAO/CGIAR · semantic_text"]
+        CTI["climate-timeseries\ngeo_point · ~3,200 docs"]
+        POI["pest-outbreaks\ngeo_point · 7 outbreaks"]
+        SPI["soil-profiles\ngeo_point · 6 profiles"]
+        CCI["crop-calendars\n17 entries"]
+        AHI["advisory-history\nAudit log"]
+    end
+
+    subgraph Automation ["Automation · Elastic Workflows"]
+        WF["advisory-alert-workflow\nIndex + CRITICAL webhook"]
+    end
+
+    Frontends --> Agent
+    LLM --> GN & CC & GC & PO & SP & CK & LW
+    GN --> CCI
+    CC --> CCI
+    GC --> CTI
+    PO --> POI
+    SP --> SPI
+    CK --> CKI
+    LW --> WF
+    WF --> AHI
+```
 
 ### Data Pipeline
-```text
-┌───────────────────────────────────────────────────────────────┐
-│                      FARMER INPUT                             │
-│   "Maize in Oyo State, Nigeria. Leaves yellowing..."          │
-└──────────────────────────┬────────────────────────────────────┘
-                           │
-                           ▼
-┌───────────────────────────────────────────────────────────────┐
-│               FarmSense Advisor (single agent)                │
-│                                                               │
-│  Step 1 — Intake                                              │
-│    geo_normalize_tool → lat_lon string                        │
-│    crop_calendar_tool → planting/harvest window               │
-│                                                               │
-│  Step 2 — Intelligence (4 parallel queries)                   │
-│    geo_climate_query    → rainfall + temp, last 90 days       │
-│    pest_outbreak_lookup → outbreaks within 300 km             │
-│    crop_knowledge_search → ELSER semantic search              │
-│    soil_profile_lookup  → soil type, drainage, WHC            │
-│                                                               │
-│  Step 3 — Advisory                                            │
-│    Synthesize into actionable diagnosis + actions             │
-│                                                               │
-│  Step 4 — Log                                                 │
-│    log_advisory_workflow → advisory-history + alert           │
-└──────────────────────────┬────────────────────────────────────┘
-                           │
-                           ▼
-┌───────────────────────────────────────────────────────────────┐
-│                   ELASTIC WORKFLOW                             │
-│   Index to advisory-history; if CRITICAL → webhook alert      │
-└───────────────────────────────────────────────────────────────┘
+
+```mermaid
+sequenceDiagram
+    participant F as Farmer
+    participant UI as Kibana Chat / Telegram
+    participant A as FarmSense Advisor
+    participant ES as Elasticsearch Serverless
+    participant WF as Elastic Workflow
+
+    Note over F,WF: Step 1 — Intake
+    F->>UI: "Maize in Oyo State, Nigeria. Leaves yellowing..."
+    UI->>A: Forward message
+    A->>ES: geo_normalize_tool(country, region)
+    ES-->>A: POINT(3.95 7.85)
+    A->>ES: crop_calendar_tool(maize, Nigeria, Oyo)
+    ES-->>A: Plant Mar-May, Harvest Aug-Oct
+
+    Note over F,WF: Step 2 — Intelligence (4 parallel queries)
+    par Climate
+        A->>ES: geo_climate_query(lat_lon) — 200km, 90 days
+        ES-->>A: Weekly rainfall + temp aggregates
+    and Pests
+        A->>ES: pest_outbreak_lookup(lat_lon) — 300km, 30 days
+        ES-->>A: Fall Armyworm · HIGH · 180km
+    and Agronomy
+        A->>ES: crop_knowledge_search(symptoms)
+        ES-->>A: ELSER semantic matches
+    and Soil
+        A->>ES: soil_profile_lookup(lat_lon) — 100km
+        ES-->>A: Ferric Lixisol · moderate drainage
+    end
+
+    Note over F,WF: Step 3 — Advisory
+    A-->>UI: Risk: HIGH · Drought + FAW · Actions
+
+    Note over F,WF: Step 4 — Log & Alert
+    A->>WF: log_advisory_workflow(advisory)
+    WF->>ES: Index to advisory-history
+    WF-->>WF: If CRITICAL → webhook alert
+    UI-->>F: Complete advisory displayed
 ```
 
 ### Technical Deep Dive
