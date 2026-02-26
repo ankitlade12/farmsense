@@ -1,5 +1,4 @@
 # 🌾 FarmSense — AI Agronomist for Smallholder Farmers
-Python 3.10+ • Elasticsearch Serverless • License: MIT
 
 *AI agronomist in your pocket — free, instant, hyper-local.*
 
