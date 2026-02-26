@@ -362,31 +362,20 @@ If the API-based setup fails, you can create everything by hand in the Kibana UI
 
 ## Telegram Bot Integration (Mobile Frontend)
 
-FarmSense includes a production-ready mobile frontend via Telegram, utilizing FastAPI and the Elastic Agent API.
+FarmSense includes a production-ready mobile frontend via Telegram, utilizing the Elastic Agent API. We provide a lightweight polling script that runs entirely locally—no `ngrok` or webhooks required.
 
-1. **Create a bot** via [@BotFather](https://t.me/botfather) and add to `.env`:
+1. **Create a bot** via [@BotFather](https://t.me/botfather) copy the bot token, and add to your `.env`:
    ```env
    TELEGRAM_BOT_TOKEN=your_bot_token_here
-   ALLOWED_CHAT_IDS=123456789,987654321  # Optional: restrict access
+   ALLOWED_CHAT_IDS=123456789,987654321  # Optional: restrict access to specific User IDs
    ```
 
-2. **Start the FastAPI server:**
+2. **Start the Telegram Bot:**
    ```bash
-   uv run python telegram_server.py
+   uv run python telegram_poller.py
    ```
 
-3. **Expose locally via ngrok:**
-   ```bash
-   ngrok http 8000
-   ```
-
-4. **Register the webhook:**
-   ```bash
-   curl -F "url=https://<YOUR_NGROK_URL>/webhook" \
-        https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
-   ```
-
-5. **Test it:** Open Telegram, find your bot, and send `/start` or a farming query!
+3. **Test it:** Open Telegram on your phone or desktop, find your bot, send `/start`, and try a farming query! The script will instantly process the request, stream the progress of the 4 parallel elastic search queries back to the chat, and deliver the final advisory.
 
 ---
 
