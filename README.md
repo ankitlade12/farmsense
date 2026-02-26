@@ -122,12 +122,12 @@ Queries active pest outbreaks (e.g., from FAO EMPRES reports) within a 300 km ra
 
 ### Prerequisites
 - Python 3.10+ with `uv`
-- Elasticsearch Serverless project
-- Kibana access
+- An **Elasticsearch Serverless** project ([sign up free](https://cloud.elastic.co/))
+- **Kibana** access (comes with your Elastic Cloud project)
 
 ### Step 1: Clone and Setup
 ```bash
-git clone https://github.com/your-username/farmsense.git
+git clone https://github.com/ankitlade12/farmsense.git
 cd farmsense
 ```
 
@@ -137,70 +137,159 @@ uv sync
 ```
 
 ### Step 3: Configure Environment
-Copy the environment template and fill in your Elasticsearch connection details:
 ```bash
 cp .env.example .env
-# Edit .env and add your ES_URL and ES_API_KEY
+```
+Edit `.env` and fill in:
+```env
+ES_URL=https://my-project-XXXXX.es.us-central1.gcp.elastic.cloud:443
+ES_API_KEY=your_api_key_here
+# KIBANA_URL is auto-derived from ES_URL (replaces .es. with .kb.)
+# Override manually if needed:
+# KIBANA_URL=https://my-project-XXXXX.kb.us-central1.gcp.elastic.cloud
 ```
 
-### Step 4: One-Command Setup
-Run the setup script to create indices, ingest data, and deploy the agent:
+### Step 4: One-Command Setup (Recommended)
 ```bash
 ./do_everything.sh
 ```
-*(Alternatively, you can run the scripts step-by-step as outlined in the [original steps](#project-structure).)*
+This single script will:
+1. Create all 6 Elasticsearch indices with proper mappings (`geo_point`, `date`, `semantic_text`)
+2. Ingest synthetic data — crop knowledge, crop calendars, climate time-series, pest outbreaks, soil profiles
+3. Create all 7 tools and the **FarmSense Advisor** agent via the Kibana Agent Builder API
+4. Start ELSER (if available)
 
-### Step 5: Open the App
-In **Kibana**, navigate to **Agent Builder → Chat**, select **FarmSense Advisor** from the agent dropdown, and you are ready to use the app!
+### Step 4 (Alternative): Step-by-Step Setup
+```bash
+# Create indices
+uv run python ingestion/create_indices.py
+
+# Ingest data (one script per index)
+uv run python ingestion/ingest_crop_knowledge.py
+uv run python ingestion/ingest_crop_calendars.py
+uv run python ingestion/ingest_climate_data.py
+uv run python ingestion/ingest_pest_outbreaks.py
+uv run python ingestion/ingest_soil_profiles.py
+
+# Create tools + FarmSense Advisor agent
+uv run python agent_config/setup.py
+```
+
+### Step 5: Open Kibana and Chat
+1. Open **Kibana** → **Agent Builder** → **Chat**
+2. Select **FarmSense Advisor** from the agent dropdown
+3. Send a farmer message — the full pipeline runs automatically
+
+---
+
+## Detailed Kibana Setup
+
+### Using the Agent in Kibana Chat
+After running the setup script, your agent and tools are ready:
+1. Navigate to **Kibana → Agent Builder → Chat**
+2. Select **FarmSense Advisor** from the dropdown
+3. Send any farmer scenario, for example:
+   > *"I'm growing maize in Oyo State, Nigeria. The leaves are turning yellow and curling. We've had very little rain for 3 weeks. Plants are at 6-leaf stage."*
+4. The agent will automatically run the full 4-step pipeline (Intake → Intelligence → Advisory → Log)
+
+### ELSER Setup (Semantic Search)
+The `crop_knowledge_search` tool uses **ELSER v2** for semantic search. If ELSER isn't deployed, that tool times out but the agent still produces advisories using climate, pest, and soil data.
+
+**To enable ELSER:**
+1. Open **Kibana → Machine Learning → Trained Models** (or **Inference**)
+2. Find **ELSER** (e.g. `.elser-2-elasticsearch`)
+3. Click **Start** / **Deploy** and wait until status shows **Started**
+4. Retry your farmer query — `crop_knowledge_search` should now return semantic matches
+
+Or via script:
+```bash
+uv run python agent_config/start_elser.py
+```
+
+### Advisory Workflow Setup (Audit Logging + Critical Alerts)
+Log every advisory to `advisory-history` and send a webhook alert when risk is CRITICAL.
+
+1. **Create the workflow in Kibana:**
+   - Open **Kibana → Workflows → Create workflow**
+   - Name: `advisory-alert-workflow`
+   - Open the YAML editor and paste the contents of `workflows/advisory_alert_workflow.yaml`
+   - Save
+
+2. **Attach the workflow tool to the agent:**
+   ```bash
+   uv run python agent_config/add_workflow_tool_to_advisor.py
+   ```
+   This creates the `log_advisory_workflow` tool and adds it to the FarmSense Advisor.
+
+3. **Troubleshooting:** If workflow execution fails, check **Workflows → Executions**. Common fix — delete and recreate the `advisory-history` index:
+   ```bash
+   uv run python -c "
+   import sys; sys.path.insert(0, 'ingestion')
+   from dotenv import load_dotenv; load_dotenv('.env')
+   from utils import get_es_client
+   c = get_es_client()
+   c.indices.delete(index='advisory-history', ignore_unavailable=True)
+   "
+   uv run python ingestion/create_indices.py
+   ```
+
+### Re-Apply ES|QL Query Fixes
+If you edit tools in the Kibana UI and queries revert:
+```bash
+uv run python agent_config/fix_esql_tools.py
+```
+
+### Manual Kibana Setup (Fallback)
+If the API-based setup fails, you can create everything by hand in the Kibana UI:
+
+1. **Create ES|QL tools** — Agent Builder → Tools → New Tool → Type: ES|QL. Create these 5 tools with queries from `agent_config/setup.py`:
+   - `geo_normalize_tool` — Resolve region to lat/lon
+   - `crop_calendar_tool` — Planting/harvest windows
+   - `geo_climate_query` — Weekly climate within 200 km
+   - `pest_outbreak_lookup` — Outbreaks within 300 km
+   - `soil_profile_lookup` — Soil profiles within 100 km
+
+2. **Create Index Search tool:**
+   - Name: `crop_knowledge_search`
+   - Index: `crop-knowledge`
+   - Type: Index Search (ELSER semantic search on `text_semantic`)
+
+3. **Create the FarmSense Advisor agent:**
+   - Name: `FarmSense Advisor`
+   - Tools: all 7 tools above
+   - Instructions: copy the `FARMSENSE_ADVISOR_INSTRUCTIONS` string from `agent_config/setup.py`
 
 ---
 
 ## Demo Walkthrough
 
-1. Open **Kibana Agent Builder Chat**.
-2. Select **FarmSense Advisor**.
-3. Send a prompt like:  
-   > *"I'm growing maize in Oyo State, Nigeria. The leaves are turning yellow and curling. We've had very little rain for 3 weeks. Plants are at 6-leaf stage."*
-4. Watch the agent normalize the geo-location, query climate and pest data, and immediately return a complete advisory with actionable next steps.
+1. Open **Kibana Agent Builder Chat**
+2. Select **FarmSense Advisor**
+3. Try any of these scenarios:
+
+| Scenario | Input |
+|---|---|
+| 🌽 Maize, Nigeria — Drought + FAW | *"Maize in Oyo State, Nigeria. Leaves yellowing and curling. Very little rain for 3 weeks. 6-leaf stage."* |
+| 🌾 Rice, Bangladesh — Flooding + Blast | *"Rice in Dhaka, Bangladesh. After floods, leaf spots and panicles turning brown. Very humid."* |
+| 🌾 Wheat, India — Minor Aphids | *"Wheat in Uttar Pradesh, India. Some aphids on leaves but crop looks healthy. Normal rainfall."* |
+| 🥔 Cassava, Kenya — Nutrient Deficiency | *"Cassava in Western Kenya. Leaves yellowing, plants stunted. Poor soil, no fertilizer."* |
+| 🍅 Tomato, Ethiopia — Late Blight | *"Tomato in Oromia, Ethiopia. Dark lesions on leaves and stems. Cool and very humid."* |
+
+4. Watch the agent normalize geo-location, query all 4 data streams, and return a structured advisory with risk level, diagnosis, and actions.
 
 ---
 
-## Agent Tools & Indices
-
-### Key Indices (Pre-loaded with Synthetic Data)
-| Index | Modelled after | Purpose |
-|---|---|---|
-| `crop-knowledge` | FAO/CGIAR guides | Text + ELSER `semantic_text` for guidance |
-| `climate-timeseries` | NASA POWER weekly | Weekly rainfall & temp by location via `ts`, `point` |
-| `pest-outbreaks` | FAO EMPRES reports | Outbreaks with `geo_point` and severity |
-| `soil-profiles` | ISRIC SoilGrids | Soil type, drainage, water-holding capacity |
-| `crop-calendars` | FAO crop calendar | Planting/harvest windows by country & region |
-| `advisory-history` | Audit log | Generated advisories with risk levels |
-
-### Agent Tools
-| Tool | Type | What it does |
-|---|---|---|
-| `geo_normalize_tool` | ES\|QL | Region name → lat_lon string for downstream tools |
-| `crop_calendar_tool` | ES\|QL | Crop + region → planting/harvest months |
-| `geo_climate_query` | ES\|QL | Weekly rainfall/temp within 200 km, last 90 days |
-| `pest_outbreak_lookup` | ES\|QL | Active outbreaks within 300 km, last 30 days |
-| `soil_profile_lookup` | ES\|QL | Nearest soil profiles within 100 km |
-| `crop_knowledge_search`| Index Search | ELSER semantic search on agronomic guidance |
-| `log_advisory_workflow`| Workflow | Log advisory + trigger CRITICAL alert webhook |
-
----
-
-### Telegram Bot Integration (Frontend)
+## Telegram Bot Integration (Mobile Frontend)
 
 FarmSense includes a production-ready mobile frontend via Telegram, utilizing FastAPI and the Elastic Agent API.
 
-1. **Configure Environment:** Create a bot via [@BotFather](https://t.me/botfather) and add the following to your `.env`:
+1. **Create a bot** via [@BotFather](https://t.me/botfather) and add to `.env`:
    ```env
    TELEGRAM_BOT_TOKEN=your_bot_token_here
-   ALLOWED_CHAT_IDS=123456789,987654321  # Optional: Protect your bot from unauthorized users
+   ALLOWED_CHAT_IDS=123456789,987654321  # Optional: restrict access
    ```
 
-2. **Start the FastAPI Server:**
+2. **Start the FastAPI server:**
    ```bash
    uv run python telegram_server.py
    ```
@@ -210,12 +299,38 @@ FarmSense includes a production-ready mobile frontend via Telegram, utilizing Fa
    ngrok http 8000
    ```
 
-4. **Register the Webhook:**
+4. **Register the webhook:**
    ```bash
-   curl -F "url=https://<YOUR_NGROK_URL>/webhook" https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
+   curl -F "url=https://<YOUR_NGROK_URL>/webhook" \
+        https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
    ```
 
-5. **Test it:** Open Telegram, find your bot, and send `/start` or a farming query to watch the real-time AI execution pipeline!
+5. **Test it:** Open Telegram, find your bot, and send `/start` or a farming query!
+
+---
+
+## Agent Tools & Indices
+
+### Key Indices (Pre-loaded with Synthetic Data)
+| Index | Modelled after | Documents | Purpose |
+|---|---|---|---|
+| `crop-knowledge` | FAO/CGIAR guides | ~20 | Text + ELSER `semantic_text` for guidance |
+| `climate-timeseries` | NASA POWER weekly | ~3,200 | Weekly rainfall & temp by location via `ts`, `point` |
+| `pest-outbreaks` | FAO EMPRES reports | 7 | Outbreaks with `geo_point` and severity |
+| `soil-profiles` | ISRIC SoilGrids | 6 | Soil type, drainage, water-holding capacity |
+| `crop-calendars` | FAO crop calendar | 17 | Planting/harvest windows by country & region |
+| `advisory-history` | Audit log | — | Generated advisories with risk levels |
+
+### Agent Tools
+| Tool | Type | What it does |
+|---|---|---|
+| `geo_normalize_tool` | ES\|QL | Region name → lat_lon WKT string for downstream tools |
+| `crop_calendar_tool` | ES\|QL | Crop + region → planting/harvest months |
+| `geo_climate_query` | ES\|QL | Weekly rainfall/temp within 200 km, last 90 days |
+| `pest_outbreak_lookup` | ES\|QL | Active outbreaks within 300 km, last 30 days |
+| `soil_profile_lookup` | ES\|QL | Nearest soil profiles within 100 km |
+| `crop_knowledge_search`| Index Search | ELSER semantic search on agronomic guidance |
+| `log_advisory_workflow`| Workflow | Log advisory + trigger CRITICAL alert webhook |
 
 ## Project Structure
 ```text
