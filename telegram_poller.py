@@ -12,6 +12,7 @@ ALLOWED_CHAT_IDS = os.environ.get("ALLOWED_CHAT_IDS", "").strip().split(",")
 ALLOWED_CHAT_IDS = [x.strip() for x in ALLOWED_CHAT_IDS if x.strip()]
 
 from telegram_server import send_telegram_message, edit_telegram_message, progress_updater, process_and_reply
+from orchestrator import reset_conversation
 
 async def poll_telegram():
     print(f"Starting long-polling for FarmSense bot...")
@@ -48,7 +49,9 @@ async def poll_telegram():
 
                     print(f"Received message: {text}")
 
-                    if text.strip().startswith("/start"):
+                    cmd = text.strip().lower()
+                    if cmd.startswith("/start"):
+                        reset_conversation(chat_id)  # begin a fresh thread
                         welcome_msg = (
                             "👨‍🌾 <b>Welcome to FarmSense!</b> 🌱\n\n"
                             "I'm your AI agronomist assistant. Tell me about your farm to get started:\n\n"
@@ -56,9 +59,15 @@ async def poll_telegram():
                             "2. <b>Where</b> is your farm? (country and region)\n"
                             "3. <b>What symptoms</b> are you seeing?\n"
                             "4. <b>What growth stage</b> is the crop in?\n\n"
-                            "<i>Example: I am growing Maize in Oyo. Leaves are completely yellow because of no rain.</i>"
+                            "<i>Example: I am growing Maize in Oyo. Leaves are completely yellow because of no rain.</i>\n\n"
+                            "<i>Tip: I remember our conversation — reply to my questions, or send /new to start over.</i>"
                         )
                         asyncio.create_task(send_telegram_message(chat_id, welcome_msg))
+                        continue
+
+                    if cmd.startswith("/new") or cmd.startswith("/reset"):
+                        reset_conversation(chat_id)
+                        asyncio.create_task(send_telegram_message(chat_id, "🆕 Fresh start. Describe your crop, location, symptoms, and growth stage."))
                         continue
 
                     msg_id = await send_telegram_message(chat_id, "<i>FarmSense Advisor is analyzing your situation...</i>")

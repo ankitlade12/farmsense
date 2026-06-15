@@ -26,6 +26,16 @@ AGENT_ID = "farmsense-advisor"
 # args). Force a strong tool-calling model. Override via env if your connector id differs.
 CONNECTOR_ID = os.environ.get("ELASTIC_CONNECTOR_ID", "Anthropic-Claude-Sonnet-4-5")
 
+# Per-chat conversation memory (chat_id -> Agent Builder conversation_id) so the bot
+# can handle multi-turn follow-ups ("2", "yes I have a stream", ...) with context.
+_conversations = {}
+
+
+def reset_conversation(chat_id) -> None:
+    """Forget a chat's thread so the next message starts fresh (used on /start)."""
+    _conversations.pop(str(chat_id), None)
+
+
 async def fetch_weather(lat: float, lon: float) -> str:
     """Fetch 7-day weather forecast from Open-Meteo."""
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,precipitation_sum&timezone=auto"
@@ -48,42 +58,46 @@ async def fetch_weather(lat: float, lon: float) -> str:
 
 # We will implement call_elastic_agent and call_localizer_agent later
 
-async def call_elastic_agent(session_id: str, message: str) -> str:
-    """Calls the farm-sense-advisor agent via Kibana API."""
-    # Using the /converse endpoint for Agent Builder interacting
+async def call_elastic_agent(session_id: str, message: str, conversation_id: str = None):
+    """Calls the FarmSense Advisor agent via the Kibana converse API.
+
+    Returns (response_text, conversation_id). Pass the returned conversation_id back
+    on the next turn to keep multi-turn context. A stale id (404) is retried fresh.
+    """
     url = f"{KIBANA_URL}/api/agent_builder/converse"
-    
-    # We do NOT pass conversation_id when starting a fresh session, 
-    # otherwise Kibana looks for an existing conversation ID and throws a 404.
-    payload = {
-        "input": message,
-        "agent_id": AGENT_ID,
-        "connector_id": CONNECTOR_ID,
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            # The agent executes 7 complex tools including ELSER search. It needs a high timeout.
+
+    async def _post(conv):
+        payload = {"input": message, "agent_id": AGENT_ID, "connector_id": CONNECTOR_ID}
+        if conv:
+            payload["conversation_id"] = conv
+        async with httpx.AsyncClient() as client:
+            # The agent runs several tools incl. ELSER — it needs a high timeout.
             resp = await client.post(url, headers=HEADERS, json=payload, timeout=180.0)
             resp.raise_for_status()
-            data = resp.json()
-            # The converse API returns the agent's response inside response.message
-            response_obj = data.get("response", {})
-            if "message" in response_obj:
-                return response_obj["message"]
-            
-            # Fallback if the structure is different (e.g., direct text)
-            if "message" in data:
-                 return data["message"]
-            if "text" in data:
-                 return data["text"]
-                 
-            return "No response from FarmSense Advisor."
+            return resp.json()
+
+    try:
+        try:
+            data = await _post(conversation_id)
         except httpx.HTTPStatusError as e:
-            text = e.response.text
-            return f"Error contacting Elastic Agent Builder API: {e.response.status_code} - {text}"
-        except Exception as e:
-            return f"Agent invocation failed: {str(e)}"
+            # An expired/unknown conversation_id 404s — start a fresh thread.
+            if conversation_id and e.response.status_code == 404:
+                data = await _post(None)
+            else:
+                raise
+        new_conv = data.get("conversation_id") or conversation_id
+        response_obj = data.get("response", {})
+        if isinstance(response_obj, dict) and "message" in response_obj:
+            return response_obj["message"], new_conv
+        if "message" in data:
+            return data["message"], new_conv
+        if "text" in data:
+            return data["text"], new_conv
+        return "No response from FarmSense Advisor.", new_conv
+    except httpx.HTTPStatusError as e:
+        return f"Error contacting Elastic Agent Builder API: {e.response.status_code} - {e.response.text}", conversation_id
+    except Exception as e:
+        return f"Agent invocation failed: {str(e)}", conversation_id
 
 async def call_localizer_agent(raw_advisory: str, system_context: str = "") -> str:
     """
@@ -125,35 +139,36 @@ async def call_localizer_agent(raw_advisory: str, system_context: str = "") -> s
             return raw_advisory # Fallback to raw text
 
 async def process_farmer_message(chat_id: str, text: str) -> str:
-    """End-to-end pipeline execution for a user message."""
-    # 1. We could attempt to extract lat/lon from the text to get real-time weather here.
-    # For a hackathon demo, if we don't have an NLP extractor doing it perfectly, we trigger the agent first.
-    # However, since the agent needs weather, we'll try to extract simple intent or ask the LLM for coords.
-    # To keep it robust without extra LLM hops, we just pass the message.
-    
-    # Ideally, we call a quick LLM extraction for Lat/Lon.
-    # For now, let's assume the user provided coordinates or we just let Elastic handle it
-    # We will just call the Elastic Agent. The weather tool could be called if coordinates are found.
-    
-    weather_context = ""
-    # Example logic: if the farmer provides a known region like "Oyo", we could look it up.
-    # Instead, we just append a note that they should check weather or we hardcode a location for the demo.
-    demo_lat, demo_lon = 7.85, 3.95 # Oyo Nigeria center
-    weather_forecast = await fetch_weather(demo_lat, demo_lon)
-    
-    prompt = f"{text}\n\n[System Context: Real-time 7-Day Forecast for user's rough location ({demo_lat}, {demo_lon}):\n{weather_forecast}]"
-    
-    # 2. Call Primary Agent (Scientific Agronomist)
-    print("Calling FarmSense Advisor...")
-    raw_advisory = await call_elastic_agent(str(chat_id), prompt)
-    print("Primary Agent Response received.")
-    
+    """End-to-end pipeline for one user message, with multi-turn memory.
+
+    The first message in a thread is enriched with a live weather forecast and starts
+    a new Agent Builder conversation; follow-ups reuse the stored conversation_id so the
+    agent remembers context (e.g. a terse "2" answering its own question).
+    """
+    cid = str(chat_id)
+    prev_conv = _conversations.get(cid)
+
+    if prev_conv:
+        # Continuing a thread — send the raw follow-up; the agent already has context.
+        prompt = text
+    else:
+        # First turn — enrich with a live 7-day forecast for the demo location.
+        demo_lat, demo_lon = 7.85, 3.95  # Oyo, Nigeria center
+        weather_forecast = await fetch_weather(demo_lat, demo_lon)
+        prompt = (
+            f"{text}\n\n[System Context: Real-time 7-Day Forecast for user's rough "
+            f"location ({demo_lat}, {demo_lon}):\n{weather_forecast}]"
+        )
+
+    # 1. Primary agent (scientific agronomist) — remembers the thread via conversation_id
+    print(f"Calling FarmSense Advisor (chat {cid}, {'follow-up' if prev_conv else 'new thread'})...")
+    raw_advisory, conv_id = await call_elastic_agent(cid, prompt, prev_conv)
+    if conv_id:
+        _conversations[cid] = conv_id
+
     if "Error" in raw_advisory or "failed" in raw_advisory.lower():
         return raw_advisory
-        
-    # 3. Call Secondary Agent (Localizer)
-    print("Calling Localizer Agent...")
+
+    # 2. Secondary agent (localizer) — mobile-friendly formatting
     final_output = await call_localizer_agent(raw_advisory)
-    print("Secondary Agent Response received.")
-    
     return final_output
