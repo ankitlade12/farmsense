@@ -63,25 +63,6 @@ TOOLS = [
         },
     },
     {
-        "id": "crop_calendar_tool",
-        "type": "esql",
-        "description": "Get planting and harvest windows for a crop in a country/region.",
-        "configuration": {
-            "query": (
-                "FROM crop-calendars "
-                "| WHERE crop_name == ?crop_name AND (country == ?country OR region == ?region) "
-                "| KEEP crop_name, planting_start_month, planting_end_month, "
-                "harvest_start_month, harvest_end_month, season_type "
-                "| LIMIT 3"
-            ),
-            "params": {
-                "crop_name": {"type": "string", "description": "Crop name (e.g. maize)"},
-                "country": {"type": "string", "description": "Country"},
-                "region": {"type": "string", "description": "Region or state"},
-            },
-        },
-    },
-    {
         "id": "geo_climate_query",
         "type": "esql",
         "description": "Get weekly rainfall and temp within 200 km of a point for the last 90 days.",
@@ -154,19 +135,19 @@ TOOLS = [
 
 FARMSENSE_ADVISOR_INSTRUCTIONS = """\
 You are FarmSense: an AI agronomist for smallholder farmers. When a farmer describes their situation you MUST run the full pipeline below. Do NOT stop after Step 1.
+IMPORTANT: Call tools STRICTLY ONE AT A TIME. Never issue more than one tool call in a single step — make one call, wait for its result, then make the next. Whenever you call a tool, fill in concrete values for ALL of its parameters (from the farmer's message or a previous tool result). NEVER call a tool with empty arguments.
 You may also receive a real-time [7-Day Forecast Context] from the Open-Meteo Live API in the user's message. Use this explicitly in your WHY THIS IS HAPPENING and IMMEDIATE ACTIONS.
 
 **Step 1 – Intake**
 Parse the message: crop_name, location (country, region), symptoms, growth_stage, rainfall_concern.
-Call geo_normalize_tool(country_name, region_text). It returns a lat_lon in WKT format (e.g. "POINT (3.95 7.85)") — use this EXACT string in every subsequent tool call.
-Call crop_calendar_tool(crop_name, country, region) to get the planting/harvest window.
+Call geo_normalize_tool(country_name, region_text) with the EXACT country and region from the farmer's message (e.g. country_name="Nigeria", region_text="Oyo State"). It returns a lat_lon in WKT format (e.g. "POINT (3.95 7.85)") — use this EXACT string in every subsequent tool call.
 
-**Step 2 – Intelligence (required — call ALL four tools)**
-Pass the EXACT lat_lon WKT string from Step 1 to each tool:
-- geo_climate_query(lat_lon) — rainfall and temperature, last 90 days
-- pest_outbreak_lookup(lat_lon) — active outbreaks within 300 km, last 30 days
-- crop_knowledge_search — semantic query with the farmer's symptoms and crop
-- soil_profile_lookup(lat_lon) — soil type, drainage, water-holding capacity
+**Step 2 – Intelligence (call these tools ONE AT A TIME — make one call, wait for its result, then the next; do NOT batch or parallelize them)**
+Take the EXACT lat_lon WKT string that geo_normalize_tool returned (e.g. "POINT (3.95 7.85)") and include it in every call below. Each call MUST contain its parameter value — never send empty arguments:
+1. geo_climate_query — pass lat_lon = the POINT string (rainfall & temp, last 90 days)
+2. pest_outbreak_lookup — pass lat_lon = the POINT string (outbreaks within 300 km, last 30 days)
+3. crop_knowledge_search — pass nlQuery = the farmer's symptoms + crop (e.g. "maize leaves yellowing curling drought")
+4. soil_profile_lookup — pass lat_lon = the POINT string (soil type, drainage, water-holding capacity)
 From results, flag: CLIMATE_ANOMALY if rainfall is well below normal; PEST_RISK_HIGH/CRITICAL if relevant outbreaks nearby.
 
 **Step 3 – Advisory (use this EXACT format)**
@@ -192,8 +173,10 @@ From results, flag: CLIMATE_ANOMALY if rainfall is well below normal; PEST_RISK_
 
 Simple language, no jargon, practical for farmers without expensive inputs.
 
-**Step 4 – Log advisory**
-Call log_advisory_workflow with: timestamp (ISO), session_id (""), lat, lon, country, crop, symptoms, risk_level, advisory_text, primary_diagnosis, pest_flagged, climate_anomaly."""
+**Step 4 – Follow up**
+After presenting the advisory, end with ONE short, friendly follow-up question for the farmer.
+(Audit logging and CRITICAL pest-risk webhook alerts are handled automatically by the
+advisory-alert-workflow at the platform layer — do not call a logging tool yourself.)"""
 
 ADVISOR_AGENT = {
     "id": "farmsense-advisor",
@@ -201,15 +184,19 @@ ADVISOR_AGENT = {
     "description": "Full pipeline: intake → climate & pest & knowledge & soil → actionable advisory.",
     "configuration": {
         "instructions": FARMSENSE_ADVISOR_INSTRUCTIONS,
+        # NOTE: log_advisory_workflow is intentionally NOT attached. Workflow-type
+        # tools don't expose their inputs as an LLM schema in this Agent Builder
+        # preview (schema.properties is empty), so the model calls them with {} and
+        # the index step fails on an empty timestamp. The advisory-alert-workflow
+        # still exists for audit/alerting; invoke it at the app layer (see
+        # orchestrator) or from the Workflows UI.
         "tools": [{
             "tool_ids": [
                 "geo_normalize_tool",
-                "crop_calendar_tool",
                 "geo_climate_query",
                 "pest_outbreak_lookup",
                 "crop_knowledge_search",
                 "soil_profile_lookup",
-                "log_advisory_workflow",
             ]
         }],
     },
@@ -279,12 +266,15 @@ def main():
     except Exception as e:
         print(f"  ELSER: {e} (start manually in Kibana → ML → Trained Models)")
 
-    print("\nAdding workflow tool (optional)...")
+    print("\nCreating advisory-alert-workflow (optional)...")
     try:
-        from add_workflow_tool_to_advisor import main as add_workflow
-        add_workflow()
+        # Create the workflow so it exists for audit/alerting + the Command Center
+        # story, but do NOT attach it as an agent tool (see ADVISOR_AGENT note).
+        from create_workflow_via_kibana_api import try_workflows_api
+        if try_workflows_api():
+            print("  Workflow ready (not attached to agent — invoke app-layer / Workflows UI).")
     except Exception as e:
-        print(f"  Workflow: {e} (create workflow in Kibana first, see OPTIONAL_SETUP.md)")
+        print(f"  Workflow: {e} (create it in Kibana Workflows, paste workflows/advisory_alert_workflow.yaml)")
 
     print("\nDone. In Kibana Agent Chat, select 'FarmSense Advisor' and send a farmer message.")
 

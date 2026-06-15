@@ -1,0 +1,77 @@
+{
+  "name": "advisory-alert-workflow",
+  "description": "Index advisory to advisory-history; if risk_level is CRITICAL, send webhook alert.",
+  "inputs": [
+    { "name": "timestamp", "type": "string", "required": true },
+    { "name": "session_id", "type": "string", "required": false },
+    { "name": "lat", "type": "string", "required": true },
+    { "name": "lon", "type": "string", "required": true },
+    { "name": "country", "type": "string", "required": true },
+    { "name": "crop", "type": "string", "required": true },
+    { "name": "symptoms", "type": "string", "required": false },
+    { "name": "risk_level", "type": "string", "required": true },
+    { "name": "advisory_text", "type": "string", "required": true },
+    { "name": "primary_diagnosis", "type": "string", "required": false },
+    { "name": "pest_flagged", "type": "string", "required": false },
+    { "name": "climate_anomaly", "type": "string", "required": false },
+    {
+      "name": "ALERT_WEBHOOK_URL",
+      "type": "string",
+      "required": false,
+      "description": "Optional; set in workflow or when invoking. e.g. https://webhook.site/..."
+    }
+  ],
+  "triggers": [
+    { "type": "manual" }
+  ],
+  "steps": [
+    {
+      "name": "index-advisory",
+      "type": "elasticsearch.request",
+      "with": {
+        "method": "POST",
+        "path": "/advisory-history/_doc",
+        "body": {
+          "@timestamp": "{{ inputs.timestamp }}",
+          "session_id": "{{ inputs.session_id }}",
+          "location": {
+            "lat": "{{ inputs.lat }}",
+            "lon": "{{ inputs.lon }}"
+          },
+          "country": "{{ inputs.country }}",
+          "crop": "{{ inputs.crop }}",
+          "symptoms_reported": "{{ inputs.symptoms }}",
+          "risk_level": "{{ inputs.risk_level }}",
+          "advisory_text": "{{ inputs.advisory_text }}",
+          "primary_diagnosis": "{{ inputs.primary_diagnosis }}",
+          "pest_flagged": "{{ inputs.pest_flagged }}",
+          "climate_anomaly": "{{ inputs.climate_anomaly }}"
+        }
+      }
+    },
+    {
+      "name": "check-critical",
+      "type": "if",
+      "condition": "inputs.risk_level: 'CRITICAL'",
+      "steps": [
+        {
+          "name": "send-critical-alert",
+          "type": "http",
+          "with": {
+            "url": "{{ inputs.ALERT_WEBHOOK_URL }}",
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "message": "CRITICAL pest risk advisory generated",
+              "location": "{{ inputs.country }}",
+              "pest": "{{ inputs.pest_flagged }}",
+              "crop": "{{ inputs.crop }}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

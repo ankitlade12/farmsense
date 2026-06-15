@@ -92,11 +92,50 @@ def try_internal_workflows_api():
     return False
 
 
+def try_workflows_api():
+    """Create the workflow via the public Workflows API (Kibana 9.x).
+
+    Body shape: {"workflows": [{"yaml": "<workflow yaml>"}]}. Idempotent —
+    returns True if a workflow named WORKFLOW_ID already exists so re-runs
+    don't create advisory-alert-workflow-1, -2, ...
+    """
+    # Already present?
+    try:
+        r = requests.get(f"{KIBANA_URL}/api/workflows", headers=HEADERS, timeout=30)
+        if r.status_code == 200:
+            for w in r.json().get("results", []):
+                if w.get("id") == WORKFLOW_ID:
+                    print(f"  Workflow already exists: {WORKFLOW_ID}")
+                    return True
+    except Exception:
+        pass
+
+    if not os.path.exists(WORKFLOW_YAML_PATH):
+        return False
+    with open(WORKFLOW_YAML_PATH) as f:
+        yaml_txt = f.read()
+    r = requests.post(
+        f"{KIBANA_URL}/api/workflows",
+        headers=HEADERS,
+        json={"workflows": [{"yaml": yaml_txt}]},
+        timeout=30,
+    )
+    if r.status_code in (200, 201):
+        ids = [c.get("id") for c in r.json().get("created", [])]
+        print(f"  Created workflow via /api/workflows: {ids}")
+        return True
+    print(f"  /api/workflows create failed: {r.status_code} {r.text[:200]}")
+    return False
+
+
 def main():
     print("Creating advisory-alert-workflow and attaching to FarmSense Advisor...")
     workflow_created = False
 
-    if try_saved_objects_create():
+    if try_workflows_api():
+        print("  Workflow ready via /api/workflows.")
+        workflow_created = True
+    elif try_saved_objects_create():
         print("  Created workflow via saved_objects API.")
         workflow_created = True
     elif try_internal_workflows_api():

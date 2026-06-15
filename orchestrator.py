@@ -22,6 +22,9 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 AGENT_ID = "farmsense-advisor"
+# The default Agent Builder model can't reliably fill tool params (it sends empty
+# args). Force a strong tool-calling model. Override via env if your connector id differs.
+CONNECTOR_ID = os.environ.get("ELASTIC_CONNECTOR_ID", "Anthropic-Claude-Sonnet-4-5")
 
 async def fetch_weather(lat: float, lon: float) -> str:
     """Fetch 7-day weather forecast from Open-Meteo."""
@@ -54,7 +57,8 @@ async def call_elastic_agent(session_id: str, message: str) -> str:
     # otherwise Kibana looks for an existing conversation ID and throws a 404.
     payload = {
         "input": message,
-        "agent_id": AGENT_ID
+        "agent_id": AGENT_ID,
+        "connector_id": CONNECTOR_ID,
     }
     
     async with httpx.AsyncClient() as client:
